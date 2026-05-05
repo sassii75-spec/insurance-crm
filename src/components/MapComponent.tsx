@@ -123,14 +123,14 @@ export default function MapComponent() {
         )}
 
         {(() => {
-          const coordMap = new Map<string, typeof clients>();
+          const coordMap = new globalThis.Map<string, typeof clients>();
           clients.filter(c => c.lat !== undefined && c.lng !== undefined && activeFilters.includes(c.status)).forEach(c => {
             const key = `${c.lat},${c.lng}`;
             if (!coordMap.has(key)) coordMap.set(key, []);
             coordMap.get(key)!.push(c);
           });
 
-          const markers: JSX.Element[] = [];
+          const markers: React.ReactNode[] = [];
           coordMap.forEach((clientList) => {
             if (clientList.length === 1) {
               const client = clientList[0];

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import styles from "@/app/Layout.module.css";
 import { Search, Map as MapIcon, Users, Calendar, BarChart, Settings, LogOut } from "lucide-react";
@@ -11,6 +11,19 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchQuery = searchParams.get('q') || '';
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    const params = new URLSearchParams(searchParams.toString());
+    if (val) {
+      params.set('q', val);
+    } else {
+      params.delete('q');
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+  };
 
   useEffect(() => {
     if (!loading) {
@@ -42,6 +55,8 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
               type="text" 
               placeholder="고객 이름, 주소 검색" 
               className={styles.searchInput} 
+              value={searchQuery}
+              onChange={handleSearch}
             />
           </div>
           <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>

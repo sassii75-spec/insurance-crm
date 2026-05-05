@@ -9,8 +9,11 @@ import * as XLSX from 'xlsx';
 import DaumPostcode from 'react-daum-postcode';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
+import { useSearchParams } from 'next/navigation';
 
 export default function ClientsPage() {
+  const searchParams = useSearchParams();
+  const searchQuery = (searchParams.get('q') || '').toLowerCase();
   const { clients, isLoaded, addClient, updateClient, deleteClient, addMultipleClients } = useClients();
   const { user } = useAuth();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -53,6 +56,7 @@ export default function ClientsPage() {
     gifts: [] as { id: string, date: string, item: string, trackingNumber?: string }[]
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   if (!isLoaded) return <div style={{ padding: '2rem', textAlign: 'center' }}>데이터 불러오는 중...</div>;
 
@@ -60,37 +64,45 @@ export default function ClientsPage() {
     setExpandedId(expandedId === id ? null : id);
   };
 
-  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsUploading(true);
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws, { range: 2 }) as any[];
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws, { range: 2 }) as any[];
 
-      const newClients = data.map(row => ({
-        name: row['고객명'] || row['이름'] || '',
-        age: String(row['나이'] || ''),
-        gender: row['성별'] || '남',
-        address: row['주소'] || '',
-        phone: String(row['전화번호'] || ''),
-        mobile: String(row['핸드폰번호'] || ''),
-        products: row['가입상품'] ? String(row['가입상품']).split(',').map(s=>s.trim()) : [],
-        contractDate: row['계약일자'] || '',
-        lastMeetingDate: row['최근미팅일자'] || '',
-        plannerAllocationMonth: row['플래너배분월'] ? String(row['플래너배분월']) : '',
-        notes: row['기타'] || '',
-        registrationDate: row['등록일자'] || '',
-        userId: row['담당플래너'] || '',
-        status: (row['상태'] === '계약중' ? 'active' : row['상태'] === '해지' ? 'terminated' : 'opportunity') as 'active'|'opportunity'|'terminated'
-      }));
+        const newClients = data.map(row => ({
+          name: row['고객명'] || row['이름'] || '',
+          age: String(row['나이'] || ''),
+          gender: row['성별'] || '남',
+          address: row['주소'] || '',
+          phone: String(row['전화번호'] || ''),
+          mobile: String(row['핸드폰번호'] || ''),
+          products: row['가입상품'] ? String(row['가입상품']).split(',').map(s=>s.trim()) : [],
+          contractDate: row['계약일자'] || '',
+          lastMeetingDate: row['최근미팅일자'] || '',
+          plannerAllocationMonth: row['플래너배분월'] ? String(row['플래너배분월']) : '',
+          notes: row['기타'] || '',
+          registrationDate: row['등록일자'] || '',
+          userId: row['담당플래너'] || '',
+          status: (row['상태'] === '계약중' ? 'active' : row['상태'] === '해지' ? 'terminated' : 'opportunity') as 'active'|'opportunity'|'terminated'
+        }));
 
-      addMultipleClients(newClients);
-      alert(`${newClients.length}명의 고객이 등록되었습니다.`);
+        await addMultipleClients(newClients);
+        alert(`${newClients.length}명의 고객이 등록되었습니다.`);
+      } catch (err) {
+        console.error(err);
+        alert('엑셀 업로드 중 오류가 발생했습니다.');
+      } finally {
+        setIsUploading(false);
+      }
     };
     reader.readAsBinaryString(file);
     e.target.value = ''; // Reset
@@ -191,6 +203,15 @@ export default function ClientsPage() {
 
   // Filter & Sort Logic
   let displayClients = [...clients];
+  
+  if (searchQuery) {
+    displayClients = displayClients.filter(c => 
+      c.name.toLowerCase().includes(searchQuery) || 
+      c.address.toLowerCase().includes(searchQuery) ||
+      getPlannerName(c.userId).toLowerCase().includes(searchQuery)
+    );
+  }
+
   if (filterStatus !== 'all') {
     displayClients = displayClients.filter(c => c.status === filterStatus);
   }
@@ -209,9 +230,9 @@ export default function ClientsPage() {
           <button className={styles.downloadBtn} onClick={handleExcelDownload}>
             <Download size={16} /> 엑셀 다운로드
           </button>
-          <div className={styles.excelBtn}>
-            <FileUp size={16} /> 엑셀 등록
-            <input type="file" accept=".xlsx, .xls" className={styles.fileInput} onChange={handleExcelUpload} />
+          <div className={styles.excelBtn} style={{ opacity: isUploading ? 0.5 : 1, pointerEvents: isUploading ? 'none' : 'auto' }}>
+            <FileUp size={16} /> {isUploading ? '업로드 중...' : '엑셀 등록'}
+            <input type="file" accept=".xlsx, .xls" className={styles.fileInput} onChange={handleExcelUpload} disabled={isUploading} />
           </div>
         </div>
       </div>

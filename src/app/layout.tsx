@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import AuthWrapper from "@/components/layout/AuthWrapper";
 import Script from "next/script";
+import { Suspense } from "react";
 
 export default function RootLayout({
   children,
@@ -22,9 +23,11 @@ export default function RootLayout({
       </head>
       <body>
         <AuthProvider>
-          <AuthWrapper>
-            {children}
-          </AuthWrapper>
+          <Suspense fallback={<div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center' }}>Loading...</div>}>
+            <AuthWrapper>
+              {children}
+            </AuthWrapper>
+          </Suspense>
         </AuthProvider>
       </body>
     </html>
