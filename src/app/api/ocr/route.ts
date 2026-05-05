@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
     if (!process.env.OPENAI_API_KEY) {
