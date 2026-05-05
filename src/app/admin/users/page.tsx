@@ -12,7 +12,7 @@ export default function AdminUsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ id: "", name: "", password: "", validUntil: "2099-12-31" });
+  const [formData, setFormData] = useState({ id: "", name: "", email: "", password: "", validUntil: "2099-12-31" });
 
   useEffect(() => {
     if (user && user.role !== 'admin') {
@@ -47,10 +47,27 @@ export default function AdminUsersPage() {
     setUsers(users.map(u => u.id === id ? { ...u, validUntil: date } : u));
   };
 
-  const handleResetPassword = async (id: string) => {
-    if (confirm("비밀번호를 '0000'으로 초기화하시겠습니까?")) {
-      await updateDoc(doc(db, "users", id), { password: "0000" });
-      alert("비밀번호가 0000으로 초기화되었습니다.");
+  const handleResetPassword = async (userObj: User) => {
+    if (confirm(`${userObj.name}님의 비밀번호를 초기화하고 안내 메일을 발송하시겠습니까?`)) {
+      // 6-digit temp code
+      const tempCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      await updateDoc(doc(db, "users", userObj.id), { 
+        password: tempCode,
+        requirePasswordChange: true
+      });
+      
+      alert(`임시 비밀번호(${tempCode})가 발급되었습니다. 메일 앱이 열리면 발송해주세요.`);
+      
+      const subject = encodeURIComponent("[InsurePro] 비밀번호 초기화 안내");
+      const body = encodeURIComponent(
+        `안녕하세요 ${userObj.name}님,\n\n` +
+        `비밀번호가 초기화되었습니다.\n` +
+        `임시 비밀번호: ${tempCode}\n\n` +
+        `로그인 후 반드시 새 비밀번호로 변경해 주세요.`
+      );
+      
+      window.location.href = `mailto:${userObj.email || ''}?subject=${subject}&body=${body}`;
     }
   };
 
@@ -75,17 +92,19 @@ export default function AdminUsersPage() {
     const newUser: User = {
       id: formData.id,
       name: formData.name,
+      email: formData.email,
       password: formData.password,
       role: 'user',
       isActive: true,
-      validUntil: formData.validUntil
+      validUntil: formData.validUntil,
+      requirePasswordChange: false
     };
 
     try {
       await setDoc(doc(db, "users", formData.id), newUser);
       setUsers([...users, newUser]);
       setIsModalOpen(false);
-      setFormData({ id: "", name: "", password: "", validUntil: "2099-12-31" });
+      setFormData({ id: "", name: "", email: "", password: "", validUntil: "2099-12-31" });
     } catch (err) {
       console.error(err);
       alert("사용자 생성 실패");
@@ -134,7 +153,7 @@ export default function AdminUsersPage() {
             </div>
 
             <div className={styles.actions}>
-              <button className={styles.resetBtn} onClick={() => handleResetPassword(u.id)}>비밀번호 초기화</button>
+              <button className={styles.resetBtn} onClick={() => handleResetPassword(u)}>비밀번호 초기화</button>
               <button className={styles.deleteBtn} onClick={() => handleDeleteUser(u.id)}>계정 삭제</button>
             </div>
           </div>
@@ -153,6 +172,10 @@ export default function AdminUsersPage() {
               <div className={styles.formGroup}>
                 <label className={styles.label}>이름</label>
                 <input type="text" className={styles.inputField} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="홍길동" />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>이메일</label>
+                <input type="email" className={styles.inputField} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="user@example.com" />
               </div>
               <div className={styles.formGroup}>
                 <label className={styles.label}>초기 비밀번호</label>

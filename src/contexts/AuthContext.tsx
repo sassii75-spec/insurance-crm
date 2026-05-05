@@ -11,6 +11,8 @@ export interface User {
   isActive: boolean;
   validUntil: string; // YYYY-MM-DD
   password?: string; // Hashed or plain (for prototype)
+  email?: string;
+  requirePasswordChange?: boolean;
 }
 
 interface AuthContextType {
