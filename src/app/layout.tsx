@@ -3,7 +3,7 @@
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import AuthWrapper from "@/components/layout/AuthWrapper";
-import Script from "next/script";
+import KakaoProvider from "@/components/KakaoProvider";
 import { Suspense } from "react";
 
 export default function RootLayout({
@@ -16,19 +16,17 @@ export default function RootLayout({
       <head>
         <title>InsurePro - 모바일 영업 지도</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-        <Script 
-          src="//dapi.kakao.com/v2/maps/sdk.js?appkey=78b5881c960d9aa54821f2fa5c611d41&libraries=services,clusterer&autoload=false" 
-          strategy="beforeInteractive" 
-        />
       </head>
       <body>
-        <AuthProvider>
-          <Suspense fallback={<div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center' }}>Loading...</div>}>
-            <AuthWrapper>
-              {children}
-            </AuthWrapper>
-          </Suspense>
-        </AuthProvider>
+        <KakaoProvider>
+          <AuthProvider>
+            <Suspense fallback={<div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center' }}>Loading...</div>}>
+              <AuthWrapper>
+                {children}
+              </AuthWrapper>
+            </Suspense>
+          </AuthProvider>
+        </KakaoProvider>
       </body>
     </html>
   );

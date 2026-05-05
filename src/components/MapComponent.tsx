@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Map, MapMarker, CustomOverlayMap, useKakaoLoader } from "react-kakao-maps-sdk";
+import { Map, MapMarker, CustomOverlayMap } from "react-kakao-maps-sdk";
 import DaumPostcode from 'react-daum-postcode';
 import styles from "./MapComponent.module.css";
 import { Shield, ShieldAlert, ShieldOff, Phone, Edit2, X } from "lucide-react";
@@ -9,11 +9,6 @@ import { Shield, ShieldAlert, ShieldOff, Phone, Edit2, X } from "lucide-react";
 import { useClients, Client } from "@/hooks/useClients";
 
 export default function MapComponent() {
-  const [loading, error] = useKakaoLoader({
-    appkey: "78b5881c960d9aa54821f2fa5c611d41",
-    libraries: ["services", "clusterer"],
-  });
-
   const { clients, isLoaded, updateClient } = useClients();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const defaultPosition = { lat: 37.4979, lng: 127.0276 };
@@ -104,8 +99,7 @@ export default function MapComponent() {
     setIsEditModalOpen(false);
   };
 
-  if (!isLoaded || loading) return <div style={{ display: 'flex', height: '100%', width: '100%', alignItems: 'center', justifyContent: 'center' }}>지도 불러오는 중...</div>;
-  if (error) return <div style={{ display: 'flex', height: '100%', width: '100%', alignItems: 'center', justifyContent: 'center' }}>지도를 로드할 수 없습니다.</div>;
+  if (!isLoaded) return <div style={{ display: 'flex', height: '100%', width: '100%', alignItems: 'center', justifyContent: 'center' }}>데이터 불러오는 중...</div>;
 
   return (
     <div className={styles.mapWrapper}>
