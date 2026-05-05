@@ -44,6 +44,7 @@ export default function MapComponent() {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeFilters, setActiveFilters] = useState<string[]>(['active', 'opportunity', 'terminated']);
+  const [searchQuery, setSearchQuery] = useState("");
   const [formData, setFormData] = useState({
     name: '', age: '', gender: '남', address: '', phone: '', mobile: '', products: '', contractDate: '', contractAmount: 0, lastMeetingDate: '', status: 'active', photo: '',
     consultations: [] as { id: string, date: string, content: string }[],
@@ -109,6 +110,17 @@ export default function MapComponent() {
 
   return (
     <div className={styles.mapWrapper}>
+      {/* Search Bar */}
+      <div className={styles.searchPanel} style={{ position: 'absolute', top: '1rem', left: '1rem', right: '1rem', zIndex: 10, display: 'flex', gap: '0.5rem' }}>
+        <input 
+          type="text" 
+          placeholder="이름, 주소, 연락처 검색..." 
+          style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: '8px', border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', fontSize: '1rem' }}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
       <Map
         center={myPosition || defaultPosition}
         style={{ width: "100%", height: "100%" }}
@@ -124,7 +136,14 @@ export default function MapComponent() {
 
         {(() => {
           const coordMap = new globalThis.Map<string, typeof clients>();
-          clients.filter(c => c.lat !== undefined && c.lng !== undefined && activeFilters.includes(c.status)).forEach(c => {
+          clients.filter(c => {
+            const matchesFilter = activeFilters.includes(c.status);
+            const matchesSearch = searchQuery === "" || 
+              c.name.includes(searchQuery) || 
+              (c.address && c.address.includes(searchQuery)) || 
+              (c.mobile && c.mobile.includes(searchQuery));
+            return c.lat !== undefined && c.lng !== undefined && matchesFilter && matchesSearch;
+          }).forEach(c => {
             const key = `${c.lat},${c.lng}`;
             if (!coordMap.has(key)) coordMap.set(key, []);
             coordMap.get(key)!.push(c);
