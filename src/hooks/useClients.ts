@@ -109,33 +109,52 @@ export function useClients() {
   const geocodeAddress = async (address: string): Promise<{lat: number, lng: number} | null> => {
     if (!address) return null;
     
-    return new Promise((resolve) => {
-      if (typeof window === 'undefined' || !window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
-        console.error("Kakao maps SDK not loaded");
-        resolve(null);
-        return;
-      }
-      
-      const geocoder = new window.kakao.maps.services.Geocoder();
-      geocoder.addressSearch(address, function(result: any, status: any) {
-        if (status === window.kakao.maps.services.Status.OK) {
-          resolve({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
-        } else {
-          const parts = address.split(' ').filter(p => p.trim() !== '');
-          if (parts.length >= 2) {
-             geocoder.addressSearch(`${parts[0]} ${parts[1]}`, function(res2: any, stat2: any) {
-               if (stat2 === window.kakao.maps.services.Status.OK) {
-                 resolve({ lat: parseFloat(res2[0].y), lng: parseFloat(res2[0].x) });
-               } else {
-                 resolve(null);
-               }
-             });
+    if (typeof window === 'undefined' || !window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+      console.error("Kakao maps SDK not loaded");
+      return null;
+    }
+    
+    const geocoder = new window.kakao.maps.services.Geocoder();
+    
+    const searchKakao = (addr: string): Promise<{lat: number, lng: number} | null> => {
+      return new Promise((resolve) => {
+        geocoder.addressSearch(addr, function(result: any, status: any) {
+          if (status === window.kakao.maps.services.Status.OK) {
+            resolve({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
           } else {
             resolve(null);
           }
-        }
+        });
       });
-    });
+    };
+
+    let coords = await searchKakao(address);
+    if (coords) return coords;
+
+    // Fallback 1: Remove anything after comma
+    const noComma = address.split(',')[0].trim();
+    if (noComma !== address) {
+      coords = await searchKakao(noComma);
+      if (coords) return coords;
+    }
+
+    // Fallback 2: Remove anything after parenthesis
+    const noParen = noComma.split('(')[0].trim();
+    if (noParen !== noComma) {
+      coords = await searchKakao(noParen);
+      if (coords) return coords;
+    }
+
+    // Fallback 3: Progressively remove trailing words (like building names or exact room numbers)
+    const parts = noParen.split(' ').filter(p => p.trim() !== '');
+    while (parts.length > 2) {
+      parts.pop(); 
+      coords = await searchKakao(parts.join(' '));
+      if (coords) return coords;
+    }
+
+    // If all fails, use random
+    return null;
   };
 
   const addClient = async (client: Omit<Client, 'id'>) => {
