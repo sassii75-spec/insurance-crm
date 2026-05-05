@@ -3,25 +3,28 @@
 import { useState } from 'react';
 import styles from './Clients.module.css';
 import { useClients, Client } from '@/hooks/useClients';
+import { useAuth } from '@/contexts/AuthContext';
 import { FileUp, Plus, ChevronDown, ChevronUp, X, Edit2, Trash2, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import DaumPostcode from 'react-daum-postcode';
 
 export default function ClientsPage() {
   const { clients, isLoaded, addClient, updateClient, deleteClient, addMultipleClients } = useClients();
+  const { user } = useAuth();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   
   // Filter & Sort State
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<string>('default');
+  const [filterPlannerId, setFilterPlannerId] = useState<string>('all');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   const [formData, setFormData] = useState({
-    name: '', age: '', gender: '남', address: '', phone: '', mobile: '', products: '', contractDate: '', contractAmount: 0, lastMeetingDate: '', status: 'active', photo: '',
+    name: '', age: '', gender: '남', address: '', phone: '', mobile: '', products: '', contractDate: '', contractAmount: 0, lastMeetingDate: '', status: 'active', photo: '', plannerAllocationMonth: '', notes: '',
     consultations: [] as { id: string, date: string, content: string }[],
     gifts: [] as { id: string, date: string, item: string, trackingNumber?: string }[]
   });
@@ -46,7 +49,7 @@ export default function ClientsPage() {
       const data = XLSX.utils.sheet_to_json(ws) as any[];
 
       const newClients = data.map(row => ({
-        name: row['이름'] || '',
+        name: row['고객명'] || row['이름'] || '',
         age: String(row['나이'] || ''),
         gender: row['성별'] || '남',
         address: row['주소'] || '',
@@ -55,6 +58,10 @@ export default function ClientsPage() {
         products: row['가입상품'] ? String(row['가입상품']).split(',').map(s=>s.trim()) : [],
         contractDate: row['계약일자'] || '',
         lastMeetingDate: row['최근미팅일자'] || '',
+        plannerAllocationMonth: row['플래너배분월'] ? String(row['플래너배분월']) : '',
+        notes: row['기타'] || '',
+        registrationDate: row['등록일자'] || '',
+        userId: row['담당플래너'] || '',
         status: (row['상태'] === '계약중' ? 'active' : row['상태'] === '해지' ? 'terminated' : 'opportunity') as 'active'|'opportunity'|'terminated'
       }));
 
@@ -84,12 +91,14 @@ export default function ClientsPage() {
         phone: client.phone, mobile: client.mobile, products: client.products.join(', '), 
         contractDate: client.contractDate, contractAmount: client.contractAmount || 0, lastMeetingDate: client.lastMeetingDate, status: client.status,
         photo: client.photo || '',
+        plannerAllocationMonth: client.plannerAllocationMonth || '',
+        notes: client.notes || '',
         consultations: client.consultations || [],
         gifts: client.gifts || []
       });
     } else {
       setEditingClient(null);
-      setFormData({ name: '', age: '', gender: '남', address: '', phone: '', mobile: '', products: '', contractDate: '', contractAmount: 0, lastMeetingDate: '', status: 'active', photo: '', consultations: [], gifts: [] });
+      setFormData({ name: '', age: '', gender: '남', address: '', phone: '', mobile: '', products: '', contractDate: '', contractAmount: 0, lastMeetingDate: '', status: 'active', photo: '', plannerAllocationMonth: '', notes: '', consultations: [], gifts: [] });
     }
     setIsModalOpen(true);
   };
@@ -128,7 +137,7 @@ export default function ClientsPage() {
     const userId = "admin(영업관리자)";
 
     const dataRows = displayClients.map(c => ({
-      '이름': c.name,
+      '고객명': c.name,
       '나이': c.age,
       '성별': c.gender,
       '전화번호': c.phone,
@@ -137,7 +146,11 @@ export default function ClientsPage() {
       '상태': c.status === 'active' ? '계약중' : c.status === 'opportunity' ? '기회' : '해지',
       '가입상품': c.products.join(', '),
       '계약일자': c.contractDate,
-      '최근미팅일자': c.lastMeetingDate
+      '최근미팅일자': c.lastMeetingDate,
+      '플래너배분월': c.plannerAllocationMonth || '',
+      '등록일자': c.registrationDate || '',
+      '담당플래너': c.userId || '',
+      '기타': c.notes || ''
     }));
 
     const ws = XLSX.utils.json_to_sheet(dataRows, { origin: "A3" } as any);
@@ -157,9 +170,15 @@ export default function ClientsPage() {
   if (filterStatus !== 'all') {
     displayClients = displayClients.filter(c => c.status === filterStatus);
   }
+  if (user?.role === 'admin' && filterPlannerId !== 'all') {
+    displayClients = displayClients.filter(c => c.userId === filterPlannerId);
+  }
   if (sortOrder === 'nameAsc') {
     displayClients.sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'));
   }
+
+  // Get unique planner IDs for the filter dropdown
+  const uniquePlanners = Array.from(new Set(clients.map(c => c.userId).filter(Boolean)));
 
   return (
     <div className={styles.container}>
@@ -193,6 +212,15 @@ export default function ClientsPage() {
             <label><input type="radio" name="sort" value="nameAsc" checked={sortOrder === 'nameAsc'} onChange={(e) => setSortOrder(e.target.value)} /> 가나다순</label>
           </div>
         </div>
+        {user?.role === 'admin' && (
+          <div className={styles.filterGroup}>
+            <label className={styles.filterLabel}>담당 플래너</label>
+            <select className={styles.selectField} style={{ padding: '0.25rem 0.5rem', width: '120px' }} value={filterPlannerId} onChange={(e) => setFilterPlannerId(e.target.value)}>
+              <option value="all">전체</option>
+              {uniquePlanners.map(id => <option key={id} value={id}>{id}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className={styles.list}>
@@ -228,6 +256,10 @@ export default function ClientsPage() {
                   <div className={styles.detailRow}><div className={styles.detailLabel}>가입상품</div><div className={styles.detailValue}>{client.products.join(', ') || '-'}</div></div>
                   <div className={styles.detailRow}><div className={styles.detailLabel}>계약일자</div><div className={styles.detailValue}>{client.contractDate || '-'}</div></div>
                   <div className={styles.detailRow}><div className={styles.detailLabel}>최근미팅</div><div className={styles.detailValue}>{client.lastMeetingDate || '-'}</div></div>
+                  <div className={styles.detailRow}><div className={styles.detailLabel}>배분월</div><div className={styles.detailValue}>{client.plannerAllocationMonth || '-'}</div></div>
+                  <div className={styles.detailRow}><div className={styles.detailLabel}>등록일자</div><div className={styles.detailValue}>{client.registrationDate || '-'}</div></div>
+                  <div className={styles.detailRow}><div className={styles.detailLabel}>담당플래너</div><div className={styles.detailValue}>{client.userId || '-'}</div></div>
+                  {client.notes && <div className={styles.detailRow}><div className={styles.detailLabel}>기타</div><div className={styles.detailValue}>{client.notes}</div></div>}
                   
                   {client.consultations && client.consultations.length > 0 && (
                     <div className={styles.historySection}>
@@ -291,7 +323,7 @@ export default function ClientsPage() {
             
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ display: 'flex', gap: '1rem' }}>
-                <div className={styles.formGroup} style={{ flex: 1 }}><label>이름</label><input required className="input-field" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} /></div>
+                <div className={styles.formGroup} style={{ flex: 1 }}><label>고객명</label><input required className="input-field" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} /></div>
                 <div className={styles.formGroup} style={{ width: '80px' }}><label>나이</label><input type="number" className="input-field" value={formData.age} onChange={e=>setFormData({...formData, age: e.target.value})} /></div>
                 <div className={styles.formGroup} style={{ width: '80px' }}><label>성별</label>
                   <select className={styles.selectField} value={formData.gender} onChange={e=>setFormData({...formData, gender: e.target.value})}>
@@ -317,6 +349,11 @@ export default function ClientsPage() {
               <div className={styles.formGroup}><label>가입/관심 상품 (쉼표로 구분)</label><input className="input-field" placeholder="종신보험, 암보험" value={formData.products} onChange={e=>setFormData({...formData, products: e.target.value})} /></div>
               <div className={styles.formGroup}><label>계약 금액(원)</label><input type="number" className="input-field" placeholder="예: 5000000" value={formData.contractAmount} onChange={e=>setFormData({...formData, contractAmount: parseInt(e.target.value) || 0})} /></div>
               
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <div className={styles.formGroup} style={{ flex: 1 }}><label>플래너 배분월</label><input type="text" className="input-field" placeholder="예: 2024년 5월" value={formData.plannerAllocationMonth} onChange={e=>setFormData({...formData, plannerAllocationMonth: e.target.value})} /></div>
+              </div>
+              <div className={styles.formGroup}><label>기타 (메모)</label><textarea className="input-field" style={{ minHeight: '60px', resize: 'vertical' }} value={formData.notes} onChange={e=>setFormData({...formData, notes: e.target.value})} /></div>
+
               <div className={styles.formGroup}>
                 <label>고객 사진 (선택)</label>
                 <input type="file" accept="image/*" onChange={handlePhotoUpload} className="input-field" style={{ padding: '0.5rem' }} />

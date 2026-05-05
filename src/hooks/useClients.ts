@@ -34,9 +34,12 @@ export interface Client {
   lat?: number;
   lng?: number;
   photo?: string;
+  plannerAllocationMonth?: string;
+  notes?: string;
   consultations?: ConsultationHistory[];
   gifts?: GiftHistory[];
   userId?: string;
+  registrationDate?: string;
 }
 
 const DEFAULT_CLIENTS: Client[] = [
@@ -60,7 +63,13 @@ export function useClients() {
 
     const fetchClients = async () => {
       try {
-        const q = query(collection(db, 'clients'), where('userId', '==', user.id));
+        let q;
+        if (user.role === 'admin') {
+          q = query(collection(db, 'clients')); // Admins fetch all clients
+        } else {
+          q = query(collection(db, 'clients'), where('userId', '==', user.id));
+        }
+        
         const querySnapshot = await getDocs(q);
         
         if (querySnapshot.empty) {
@@ -135,8 +144,9 @@ export function useClients() {
     }
     if (!coords) coords = getRandomLatLng();
 
-    const newId = Date.now().toString() + '_' + (user?.id || 'unknown');
-    const newClient: Client = { ...client, id: newId, ...coords, userId: user?.id };
+    const newId = Date.now().toString() + '_' + (client.userId || user?.id || 'unknown');
+    const today = new Date().toISOString().split('T')[0];
+    const newClient: Client = { ...client, id: newId, ...coords, userId: client.userId || user?.id, registrationDate: client.registrationDate || today };
     
     try {
       await setDoc(doc(collection(db, 'clients'), newId), newClient);
@@ -193,7 +203,9 @@ export function useClients() {
       }
       if (!coords) coords = getRandomLatLng();
       
-      clientsWithIds.push({ ...c, id: Date.now().toString() + i + '_' + (user?.id || 'unknown'), ...coords, userId: user?.id });
+      const today = new Date().toISOString().split('T')[0];
+      const targetUserId = c.userId || user?.id;
+      clientsWithIds.push({ ...c, id: Date.now().toString() + i + '_' + (targetUserId || 'unknown'), ...coords, userId: targetUserId, registrationDate: c.registrationDate || today });
     }
     
     try {
