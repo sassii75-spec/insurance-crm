@@ -46,7 +46,7 @@ export default function ClientsPage() {
       const wb = XLSX.read(bstr, { type: 'binary' });
       const wsname = wb.SheetNames[0];
       const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws) as any[];
+      const data = XLSX.utils.sheet_to_json(ws, { range: 2 }) as any[];
 
       const newClients = data.map(row => ({
         name: row['고객명'] || row['이름'] || '',
