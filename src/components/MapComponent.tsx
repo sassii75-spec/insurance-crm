@@ -154,20 +154,47 @@ export default function MapComponent() {
         />
         <LocationMarker />
         
-        {clients
-          .filter(client => client.lat !== undefined && client.lng !== undefined && activeFilters.includes(client.status))
-          .map(client => (
-          <Marker 
-            key={client.id} 
-            position={[client.lat!, client.lng!]} 
-            icon={getIcon(client.status, client.photo)}
-            eventHandlers={{
-              click: () => {
-                setSelectedClient(client);
-              }
-            }}
-          />
-        ))}
+        {(() => {
+          const coordMap = new Map<string, typeof clients>();
+          clients.filter(c => c.lat !== undefined && c.lng !== undefined && activeFilters.includes(c.status)).forEach(c => {
+            const key = `${c.lat},${c.lng}`;
+            if (!coordMap.has(key)) coordMap.set(key, []);
+            coordMap.get(key)!.push(c);
+          });
+
+          const markers: JSX.Element[] = [];
+          coordMap.forEach((clientList) => {
+            if (clientList.length === 1) {
+              const client = clientList[0];
+              markers.push(
+                <Marker 
+                  key={client.id} 
+                  position={[client.lat!, client.lng!]} 
+                  icon={getIcon(client.status, client.photo)}
+                  eventHandlers={{ click: () => setSelectedClient(client) }}
+                />
+              );
+            } else {
+              // Scatter overlapping markers in a circle
+              const radius = 0.0003 * Math.max(1, clientList.length / 5);
+              clientList.forEach((client, index) => {
+                const angle = (index / clientList.length) * 2 * Math.PI;
+                const latOffset = Math.sin(angle) * radius;
+                // adjust longitude offset based on latitude to keep it roughly circular
+                const lngOffset = (Math.cos(angle) * radius) / Math.cos(client.lat! * (Math.PI / 180));
+                markers.push(
+                  <Marker 
+                    key={client.id} 
+                    position={[client.lat! + latOffset, client.lng! + lngOffset]} 
+                    icon={getIcon(client.status, client.photo)}
+                    eventHandlers={{ click: () => setSelectedClient(client) }}
+                  />
+                );
+              });
+            }
+          });
+          return markers;
+        })()}
       </MapContainer>
 
       {/* Bottom Sheet Card */}
