@@ -127,13 +127,37 @@ export default function ClientsPage() {
       let base64Images: string[] = [];
 
       if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
+        const compressedBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              let width = img.width;
+              let height = img.height;
+              
+              const MAX_DIMENSION = 1500;
+              if (width > height && width > MAX_DIMENSION) {
+                height *= MAX_DIMENSION / width;
+                width = MAX_DIMENSION;
+              } else if (height > MAX_DIMENSION) {
+                width *= MAX_DIMENSION / height;
+                height = MAX_DIMENSION;
+              }
+              
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compress to 70% quality
+            };
+            img.onerror = reject;
+            img.src = event.target?.result as string;
+          };
           reader.onerror = reject;
+          reader.readAsDataURL(file);
         });
-        reader.readAsDataURL(file);
-        base64Images.push(await base64Promise);
+        base64Images.push(compressedBase64);
       } else if (file.type === 'application/pdf') {
         const pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -141,9 +165,9 @@ export default function ClientsPage() {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         
-        for (let i = 1; i <= pdf.numPages; i++) {
+        for (let i = 1; i <= Math.min(pdf.numPages, 5); i++) { // Limit to first 5 pages to prevent payload overflow
           const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1.5 });
+          const viewport = page.getViewport({ scale: 1.0 }); // Decrease scale from 1.5 to 1.0 to reduce payload size
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
           if (!ctx) continue;
@@ -152,7 +176,7 @@ export default function ClientsPage() {
           canvas.width = viewport.width;
           
           await page.render({ canvasContext: ctx, viewport: viewport } as any).promise;
-          const imgBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          const imgBase64 = canvas.toDataURL('image/jpeg', 0.6); // Decrease quality from 0.8 to 0.6
           base64Images.push(imgBase64);
         }
       } else {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
+export const maxDuration = 60; // Allow up to 60 seconds for execution (Vercel Hobby supports up to 60s)
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
