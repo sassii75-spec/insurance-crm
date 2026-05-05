@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './Clients.module.css';
 import { useClients, Client } from '@/hooks/useClients';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileUp, Plus, ChevronDown, ChevronUp, X, Edit2, Trash2, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import DaumPostcode from 'react-daum-postcode';
+import { db } from '@/lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 export default function ClientsPage() {
   const { clients, isLoaded, addClient, updateClient, deleteClient, addMultipleClients } = useClients();
@@ -18,6 +20,28 @@ export default function ClientsPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<string>('default');
   const [filterPlannerId, setFilterPlannerId] = useState<string>('all');
+  
+  const [planners, setPlanners] = useState<{id: string, name: string}[]>([]);
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      const fetchPlanners = async () => {
+        const snapshot = await getDocs(collection(db, 'users'));
+        const loadedPlanners: {id: string, name: string}[] = [];
+        snapshot.forEach(doc => {
+          loadedPlanners.push({ id: doc.id, name: doc.data().name || doc.id });
+        });
+        setPlanners(loadedPlanners);
+      };
+      fetchPlanners();
+    }
+  }, [user]);
+
+  const getPlannerName = (userId: string | undefined) => {
+    if (!userId) return '';
+    if (userId === user?.id) return user?.name || userId;
+    return planners.find(p => p.id === userId)?.name || userId;
+  };
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -149,7 +173,7 @@ export default function ClientsPage() {
       '최근미팅일자': c.lastMeetingDate,
       '플래너배분월': c.plannerAllocationMonth || '',
       '등록일자': c.registrationDate || '',
-      '담당플래너': c.userId || '',
+      '담당플래너': getPlannerName(c.userId),
       '기타': c.notes || ''
     }));
 
@@ -176,9 +200,6 @@ export default function ClientsPage() {
   if (sortOrder === 'nameAsc') {
     displayClients.sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'));
   }
-
-  // Get unique planner IDs for the filter dropdown
-  const uniquePlanners = Array.from(new Set(clients.map(c => c.userId).filter(Boolean)));
 
   return (
     <div className={styles.container}>
@@ -217,7 +238,7 @@ export default function ClientsPage() {
             <label className={styles.filterLabel}>담당 플래너</label>
             <select className={styles.selectField} style={{ padding: '0.25rem 0.5rem', width: '120px' }} value={filterPlannerId} onChange={(e) => setFilterPlannerId(e.target.value)}>
               <option value="all">전체</option>
-              {uniquePlanners.map(id => <option key={id} value={id}>{id}</option>)}
+              {planners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
         )}
@@ -258,7 +279,7 @@ export default function ClientsPage() {
                   <div className={styles.detailRow}><div className={styles.detailLabel}>최근미팅</div><div className={styles.detailValue}>{client.lastMeetingDate || '-'}</div></div>
                   <div className={styles.detailRow}><div className={styles.detailLabel}>배분월</div><div className={styles.detailValue}>{client.plannerAllocationMonth || '-'}</div></div>
                   <div className={styles.detailRow}><div className={styles.detailLabel}>등록일자</div><div className={styles.detailValue}>{client.registrationDate || '-'}</div></div>
-                  <div className={styles.detailRow}><div className={styles.detailLabel}>담당플래너</div><div className={styles.detailValue}>{client.userId || '-'}</div></div>
+                  <div className={styles.detailRow}><div className={styles.detailLabel}>담당플래너</div><div className={styles.detailValue}>{getPlannerName(client.userId) || '-'}</div></div>
                   {client.notes && <div className={styles.detailRow}><div className={styles.detailLabel}>기타</div><div className={styles.detailValue}>{client.notes}</div></div>}
                   
                   {client.consultations && client.consultations.length > 0 && (
