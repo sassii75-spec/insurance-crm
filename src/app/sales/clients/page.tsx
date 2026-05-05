@@ -114,6 +114,68 @@ export default function ClientsPage() {
     e.target.value = ''; // Reset
   };
 
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let text = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map((item: any) => item.str).join(' ') + '\n';
+      }
+
+      const response = await fetch('/api/ocr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'OCR 분석 실패');
+      }
+
+      const parsedData = await response.json();
+      
+      setEditingClient(null);
+      setFormData({
+        name: parsedData.name || '',
+        age: parsedData.age || '',
+        gender: parsedData.gender || '남',
+        address: parsedData.address || '',
+        phone: parsedData.phone || '',
+        mobile: parsedData.mobile || '',
+        products: Array.isArray(parsedData.products) ? parsedData.products.join(', ') : '',
+        contractDate: parsedData.contractDate || '',
+        contractAmount: 0,
+        lastMeetingDate: '',
+        status: 'active',
+        photo: '',
+        plannerAllocationMonth: '',
+        notes: '',
+        consultations: [],
+        gifts: []
+      });
+      setIsModalOpen(true);
+      alert('PDF 분석 완료! 내용을 확인하고 저장해주세요.');
+
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'PDF 스캔 중 오류가 발생했습니다.');
+    } finally {
+      setIsUploading(false);
+      e.target.value = ''; // Reset
+    }
+  };
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -236,6 +298,10 @@ export default function ClientsPage() {
           <button className={styles.downloadBtn} onClick={handleExcelDownload}>
             <Download size={16} /> 엑셀 다운로드
           </button>
+          <div className={styles.excelBtn} style={{ opacity: isUploading ? 0.5 : 1, pointerEvents: isUploading ? 'none' : 'auto', background: '#f59e0b', borderColor: '#f59e0b', color: 'white' }}>
+            <FileUp size={16} /> {isUploading ? '분석 중...' : 'PDF 스캔'}
+            <input type="file" accept="application/pdf" className={styles.fileInput} onChange={handlePdfUpload} disabled={isUploading} />
+          </div>
           <div className={styles.excelBtn} style={{ opacity: isUploading ? 0.5 : 1, pointerEvents: isUploading ? 'none' : 'auto' }}>
             <FileUp size={16} /> {isUploading ? '업로드 중...' : '엑셀 등록'}
             <input type="file" accept=".xlsx, .xls" className={styles.fileInput} onChange={handleExcelUpload} disabled={isUploading} />
