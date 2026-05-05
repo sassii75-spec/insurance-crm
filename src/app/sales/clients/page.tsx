@@ -65,6 +65,7 @@ export default function ClientsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [ocrParsedClients, setOcrParsedClients] = useState<any[]>([]);
   const [ocrPdfUrl, setOcrPdfUrl] = useState<string | null>(null);
+  const [ocrMediaType, setOcrMediaType] = useState<'pdf' | 'image' | null>(null);
   const [isOcrReviewModalOpen, setIsOcrReviewModalOpen] = useState(false);
 
   if (!isLoaded) return <div style={{ padding: '2rem', textAlign: 'center' }}>데이터 불러오는 중...</div>;
@@ -123,22 +124,45 @@ export default function ClientsPage() {
 
     setIsUploading(true);
     try {
-      const pdfjsLib = await import('pdfjs-dist');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+      let base64Images: string[] = [];
 
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      let text = '';
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        text += content.items.map((item: any) => item.str).join(' ') + '\n';
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+        });
+        reader.readAsDataURL(file);
+        base64Images.push(await base64Promise);
+      } else if (file.type === 'application/pdf') {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) continue;
+          
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          
+          await page.render({ canvasContext: ctx, viewport: viewport } as any).promise;
+          const imgBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          base64Images.push(imgBase64);
+        }
+      } else {
+        throw new Error('지원하지 않는 파일 형식입니다. PDF나 이미지만 업로드 가능합니다.');
       }
 
       const response = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ images: base64Images })
       });
 
       if (!response.ok) {
@@ -170,6 +194,7 @@ export default function ClientsPage() {
 
       setOcrParsedClients(mappedClients);
       setOcrPdfUrl(URL.createObjectURL(file));
+      setOcrMediaType(file.type.startsWith('image/') ? 'image' : 'pdf');
       setIsOcrReviewModalOpen(true);
 
     } catch (err: any) {
@@ -326,8 +351,8 @@ export default function ClientsPage() {
             <Download size={16} /> 엑셀 다운로드
           </button>
           <div className={styles.excelBtn} style={{ opacity: isUploading ? 0.5 : 1, pointerEvents: isUploading ? 'none' : 'auto', background: '#f59e0b', borderColor: '#f59e0b', color: 'white' }}>
-            <FileUp size={16} /> {isUploading ? '분석 중...' : 'PDF 스캔'}
-            <input type="file" accept="application/pdf" className={styles.fileInput} onChange={handlePdfUpload} disabled={isUploading} />
+            <FileUp size={16} /> {isUploading ? '분석 중...' : '스캔 (PDF/사진)'}
+            <input type="file" accept="application/pdf, image/jpeg, image/png, image/webp" className={styles.fileInput} onChange={handlePdfUpload} disabled={isUploading} />
           </div>
           <div className={styles.excelBtn} style={{ opacity: isUploading ? 0.5 : 1, pointerEvents: isUploading ? 'none' : 'auto' }}>
             <FileUp size={16} /> {isUploading ? '업로드 중...' : '엑셀 등록'}
@@ -581,12 +606,16 @@ export default function ClientsPage() {
             </div>
             
             <div className={styles.ocrModalBody}>
-              {/* Left Pane: PDF Viewer */}
+              {/* Left Pane: Media Viewer */}
               <div className={styles.ocrPdfPane}>
                 {ocrPdfUrl ? (
-                  <iframe src={ocrPdfUrl} width="100%" height="100%" style={{ border: 'none', borderRadius: '8px' }} title="PDF Viewer" />
+                  ocrMediaType === 'image' ? (
+                    <img src={ocrPdfUrl} alt="Scan" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+                  ) : (
+                    <iframe src={ocrPdfUrl} width="100%" height="100%" style={{ border: 'none', borderRadius: '8px' }} title="PDF Viewer" />
+                  )
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>PDF를 불러올 수 없습니다.</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>파일을 불러올 수 없습니다.</div>
                 )}
               </div>
               

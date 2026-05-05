@@ -14,10 +14,10 @@ export async function POST(req: Request) {
     });
 
     const body = await req.json();
-    const { text } = body;
+    const { images } = body;
 
-    if (!text) {
-      return NextResponse.json({ error: '텍스트가 제공되지 않았습니다.' }, { status: 400 });
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return NextResponse.json({ error: '이미지가 제공되지 않았습니다.' }, { status: 400 });
     }
 
     const prompt = `
@@ -53,13 +53,17 @@ export async function POST(req: Request) {
   ]
 }
 
---- 문서 텍스트 ---
-${text}
+}
 `;
+
+    const messageContent = [
+      { type: 'text', text: prompt },
+      ...images.map((img: string) => ({ type: 'image_url', image_url: { url: img } }))
+    ];
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: messageContent as any }],
       temperature: 0.1,
       response_format: { type: 'json_object' }
     });
