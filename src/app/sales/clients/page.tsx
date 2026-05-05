@@ -390,7 +390,7 @@ export default function ClientsPage() {
               <div className={styles.formGroup}>
                 <label>주소</label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input className="input-field" style={{ flex: 1 }} placeholder="주소 검색을 이용하세요" value={formData.address} readOnly />
+                  <input className="input-field" style={{ flex: 1 }} placeholder="주소 입력 (주소 검색 후 세부주소 추가)" value={formData.address} onChange={e=>setFormData({...formData, address: e.target.value})} />
                   <button type="button" onClick={() => setIsAddressModalOpen(true)} className="btn-primary" style={{ padding: '0 1rem', whiteSpace: 'nowrap' }}>주소 검색</button>
                 </div>
               </div>
