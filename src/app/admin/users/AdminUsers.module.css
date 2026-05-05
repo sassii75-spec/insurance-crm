@@ -1,5 +1,6 @@
 .container {
   padding: 1.5rem;
+  padding-top: 5rem; /* Add extra padding to avoid overlapping with floating header */
   background: var(--bg-main);
   min-height: 100vh;
   padding-bottom: 100px;
