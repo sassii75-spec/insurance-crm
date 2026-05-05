@@ -109,32 +109,33 @@ export function useClients() {
   const geocodeAddress = async (address: string): Promise<{lat: number, lng: number} | null> => {
     if (!address) return null;
     
-    const search = async (query: string) => {
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
-          headers: { 'User-Agent': 'InsurePro/1.0' }
-        });
-        const data = await res.json();
-        if (data && data.length > 0) {
-          return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-        }
-      } catch (e) {
-        console.error("Geocoding failed", e);
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+        console.error("Kakao maps SDK not loaded");
+        resolve(null);
+        return;
       }
-      return null;
-    };
-
-    let result = await search(address);
-    if (result) return result;
-
-    const parts = address.split(' ').filter(p => p.trim() !== '');
-    if (parts.length >= 2) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      result = await search(`${parts[0]} ${parts[1]}`);
-      if (result) return result;
-    }
-    
-    return null;
+      
+      const geocoder = new window.kakao.maps.services.Geocoder();
+      geocoder.addressSearch(address, function(result: any, status: any) {
+        if (status === window.kakao.maps.services.Status.OK) {
+          resolve({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
+        } else {
+          const parts = address.split(' ').filter(p => p.trim() !== '');
+          if (parts.length >= 2) {
+             geocoder.addressSearch(`${parts[0]} ${parts[1]}`, function(res2: any, stat2: any) {
+               if (stat2 === window.kakao.maps.services.Status.OK) {
+                 resolve({ lat: parseFloat(res2[0].y), lng: parseFloat(res2[0].x) });
+               } else {
+                 resolve(null);
+               }
+             });
+          } else {
+            resolve(null);
+          }
+        }
+      });
+    });
   };
 
   const addClient = async (client: Omit<Client, 'id'>) => {
@@ -199,7 +200,8 @@ export function useClients() {
       let coords = null;
       if (c.address) {
         coords = await geocodeAddress(c.address);
-        if (i < newClients.length - 1) await new Promise(resolve => setTimeout(resolve, 1000));
+        // Kakao API has rate limits but it's very high, short delay just in case
+        if (i < newClients.length - 1) await new Promise(resolve => setTimeout(resolve, 200));
       }
       if (!coords) coords = getRandomLatLng();
       

@@ -1,76 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
+import { useEffect, useState, useRef } from "react";
+import { Map, MapMarker, CustomOverlayMap, useKakaoLoader } from "react-kakao-maps-sdk";
 import DaumPostcode from 'react-daum-postcode';
-import L from "leaflet";
 import styles from "./MapComponent.module.css";
-import { Shield, ShieldAlert, ShieldOff, Phone, ChevronRight, Edit2, X } from "lucide-react";
-
-// Fix default marker icon issues in Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
-
-// Custom Icons for 3 client types
-const createPinIcon = (color: string, photoUrl?: string) => {
-  const innerHtml = photoUrl 
-    ? `<img src="${photoUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />`
-    : '';
-
-  return L.divIcon({
-    className: styles.pinMarker,
-    html: `
-      <div class="${styles.pin}" style="background-color: ${color}; border-color: ${color};">
-        <div class="${styles.pinContent}" style="overflow: hidden;">${innerHtml}</div>
-      </div>
-    `,
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-  });
-};
-
-const getIcon = (status: string, photoUrl?: string) => {
-  const color = status === 'active' ? '#2563eb' : status === 'opportunity' ? '#f59e0b' : '#94a3b8';
-  return createPinIcon(color, photoUrl);
-};
+import { Shield, ShieldAlert, ShieldOff, Phone, Edit2, X } from "lucide-react";
 
 import { useClients, Client } from "@/hooks/useClients";
 
-function MapClickHandler({ onClick }: { onClick: () => void }) {
-  useMapEvents({
-    click: () => {
-      onClick();
-    }
-  });
-  return null;
-}
-
-function LocationMarker() {
-  const [position, setPosition] = useState<[number, number] | null>(null);
-  const map = useMap();
-
-  useEffect(() => {
-    map.locate().on("locationfound", function (e) {
-      setPosition([e.latlng.lat, e.latlng.lng]);
-      map.flyTo(e.latlng, map.getZoom());
-    });
-  }, [map]);
-
-  return position === null ? null : (
-    <Marker position={position}>
-      <Popup>현재 내 위치</Popup>
-    </Marker>
-  );
-}
-
 export default function MapComponent() {
+  const [loading, error] = useKakaoLoader({
+    appkey: "78b5881c960d9aa54821f2fa5c611d41",
+    libraries: ["services", "clusterer"],
+  });
+
   const { clients, isLoaded, updateClient } = useClients();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const defaultPosition: [number, number] = [37.4979, 127.0276];
+  const defaultPosition = { lat: 37.4979, lng: 127.0276 };
+  
+  const [myPosition, setMyPosition] = useState<{lat: number, lng: number} | null>(null);
+  const mapRef = useRef<kakao.maps.Map>(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setMyPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        (err) => console.error("Geolocation error:", err)
+      );
+    }
+  }, []);
+
+  // When myPosition is found and map is loaded, fly to it once
+  useEffect(() => {
+    if (myPosition && mapRef.current) {
+      mapRef.current.panTo(new kakao.maps.LatLng(myPosition.lat, myPosition.lng));
+    }
+  }, [myPosition]);
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -137,23 +104,24 @@ export default function MapComponent() {
     setIsEditModalOpen(false);
   };
 
-  if (!isLoaded) return null;
+  if (!isLoaded || loading) return <div style={{ display: 'flex', height: '100%', width: '100%', alignItems: 'center', justifyContent: 'center' }}>지도 불러오는 중...</div>;
+  if (error) return <div style={{ display: 'flex', height: '100%', width: '100%', alignItems: 'center', justifyContent: 'center' }}>지도를 로드할 수 없습니다.</div>;
 
   return (
     <div className={styles.mapWrapper}>
-      <MapContainer 
-        center={defaultPosition} 
-        zoom={15} 
-        style={{ height: '100%', width: '100%', zIndex: 1 }}
-        zoomControl={false}
+      <Map
+        center={myPosition || defaultPosition}
+        style={{ width: "100%", height: "100%" }}
+        level={5}
+        ref={mapRef}
+        onClick={() => setSelectedClient(null)}
       >
-        <MapClickHandler onClick={() => setSelectedClient(null)} />
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        />
-        <LocationMarker />
-        
+        {myPosition && (
+          <MapMarker position={myPosition} title="내 위치">
+            <div style={{ padding: "5px", color: "#000", fontSize: "12px", whiteSpace: "nowrap" }}>내 위치</div>
+          </MapMarker>
+        )}
+
         {(() => {
           const coordMap = new Map<string, typeof clients>();
           clients.filter(c => c.lat !== undefined && c.lng !== undefined && activeFilters.includes(c.status)).forEach(c => {
@@ -166,13 +134,22 @@ export default function MapComponent() {
           coordMap.forEach((clientList) => {
             if (clientList.length === 1) {
               const client = clientList[0];
+              const color = client.status === 'active' ? '#2563eb' : client.status === 'opportunity' ? '#f59e0b' : '#94a3b8';
               markers.push(
-                <Marker 
+                <CustomOverlayMap 
                   key={client.id} 
-                  position={[client.lat!, client.lng!]} 
-                  icon={getIcon(client.status, client.photo)}
-                  eventHandlers={{ click: () => setSelectedClient(client) }}
-                />
+                  position={{ lat: client.lat!, lng: client.lng! }} 
+                  clickable={true}
+                  zIndex={selectedClient?.id === client.id ? 100 : 1}
+                >
+                  <div className={styles.pinMarker} onClick={() => setSelectedClient(client)}>
+                    <div className={styles.pin} style={{ backgroundColor: color, borderColor: color }}>
+                      <div className={styles.pinContent} style={{ overflow: 'hidden' }}>
+                        {client.photo && <img src={client.photo} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} alt="client" />}
+                      </div>
+                    </div>
+                  </div>
+                </CustomOverlayMap>
               );
             } else {
               // Scatter overlapping markers in a circle
@@ -180,22 +157,30 @@ export default function MapComponent() {
               clientList.forEach((client, index) => {
                 const angle = (index / clientList.length) * 2 * Math.PI;
                 const latOffset = Math.sin(angle) * radius;
-                // adjust longitude offset based on latitude to keep it roughly circular
                 const lngOffset = (Math.cos(angle) * radius) / Math.cos(client.lat! * (Math.PI / 180));
+                const color = client.status === 'active' ? '#2563eb' : client.status === 'opportunity' ? '#f59e0b' : '#94a3b8';
                 markers.push(
-                  <Marker 
+                  <CustomOverlayMap 
                     key={client.id} 
-                    position={[client.lat! + latOffset, client.lng! + lngOffset]} 
-                    icon={getIcon(client.status, client.photo)}
-                    eventHandlers={{ click: () => setSelectedClient(client) }}
-                  />
+                    position={{ lat: client.lat! + latOffset, lng: client.lng! + lngOffset }} 
+                    clickable={true}
+                    zIndex={selectedClient?.id === client.id ? 100 : 1}
+                  >
+                    <div className={styles.pinMarker} onClick={() => setSelectedClient(client)}>
+                      <div className={styles.pin} style={{ backgroundColor: color, borderColor: color }}>
+                        <div className={styles.pinContent} style={{ overflow: 'hidden' }}>
+                          {client.photo && <img src={client.photo} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} alt="client" />}
+                        </div>
+                      </div>
+                    </div>
+                  </CustomOverlayMap>
                 );
               });
             }
           });
           return markers;
         })()}
-      </MapContainer>
+      </Map>
 
       {/* Bottom Sheet Card */}
       {selectedClient && (
