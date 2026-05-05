@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, setDoc, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, setDoc, doc, updateDoc, deleteDoc, writeBatch, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface ConsultationHistory {
   id: string;
@@ -35,6 +36,7 @@ export interface Client {
   photo?: string;
   consultations?: ConsultationHistory[];
   gifts?: GiftHistory[];
+  userId?: string;
 }
 
 const DEFAULT_CLIENTS: Client[] = [
@@ -47,20 +49,30 @@ const DEFAULT_CLIENTS: Client[] = [
 export function useClients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
+    if (!user) {
+      setClients([]);
+      setIsLoaded(true);
+      return;
+    }
+
     const fetchClients = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'clients'));
+        const q = query(collection(db, 'clients'), where('userId', '==', user.id));
+        const querySnapshot = await getDocs(q);
+        
         if (querySnapshot.empty) {
-          // Initialize with default clients if DB is empty
+          // Initialize with default clients if DB is empty for this user
           const batch = writeBatch(db);
-          DEFAULT_CLIENTS.forEach(client => {
-            const docRef = doc(collection(db, 'clients'), client.id);
+          const initialClients = DEFAULT_CLIENTS.map(c => ({...c, userId: user.id}));
+          initialClients.forEach(client => {
+            const docRef = doc(collection(db, 'clients'), client.id + '_' + user.id);
             batch.set(docRef, client);
           });
           await batch.commit();
-          setClients(DEFAULT_CLIENTS);
+          setClients(initialClients);
         } else {
           const loadedClients: Client[] = [];
           querySnapshot.forEach((doc) => {
@@ -123,8 +135,8 @@ export function useClients() {
     }
     if (!coords) coords = getRandomLatLng();
 
-    const newId = Date.now().toString();
-    const newClient: Client = { ...client, id: newId, ...coords };
+    const newId = Date.now().toString() + '_' + (user?.id || 'unknown');
+    const newClient: Client = { ...client, id: newId, ...coords, userId: user?.id };
     
     try {
       await setDoc(doc(collection(db, 'clients'), newId), newClient);
@@ -181,7 +193,7 @@ export function useClients() {
       }
       if (!coords) coords = getRandomLatLng();
       
-      clientsWithIds.push({ ...c, id: Date.now().toString() + i, ...coords });
+      clientsWithIds.push({ ...c, id: Date.now().toString() + i + '_' + (user?.id || 'unknown'), ...coords, userId: user?.id });
     }
     
     try {
