@@ -10,8 +10,14 @@ import DaumPostcode from 'react-daum-postcode';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { useSearchParams } from 'next/navigation';
+import { useKakaoLoader } from "react-kakao-maps-sdk";
 
 export default function ClientsPage() {
+  useKakaoLoader({
+    appkey: "78b5881c960d9aa54821f2fa5c611d41",
+    libraries: ["services", "clusterer"],
+  });
+
   const searchParams = useSearchParams();
   const searchQuery = (searchParams.get('q') || '').toLowerCase();
   const { clients, isLoaded, addClient, updateClient, deleteClient, addMultipleClients } = useClients();
