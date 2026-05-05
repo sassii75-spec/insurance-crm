@@ -143,9 +143,14 @@ export default function MapComponent() {
                   zIndex={selectedClient?.id === client.id ? 100 : 1}
                 >
                   <div className={styles.pinMarker} onClick={() => setSelectedClient(client)}>
+                    <div className={styles.pinTooltip}>{client.name}</div>
                     <div className={styles.pin} style={{ backgroundColor: color, borderColor: color }}>
                       <div className={styles.pinContent} style={{ overflow: 'hidden' }}>
-                        {client.photo && <img src={client.photo} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} alt="client" />}
+                        <img 
+                          src={client.photo || '/images/default_avatar.png'} 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} 
+                          alt="client" 
+                        />
                       </div>
                     </div>
                   </div>
@@ -167,9 +172,14 @@ export default function MapComponent() {
                     zIndex={selectedClient?.id === client.id ? 100 : 1}
                   >
                     <div className={styles.pinMarker} onClick={() => setSelectedClient(client)}>
+                      <div className={styles.pinTooltip}>{client.name}</div>
                       <div className={styles.pin} style={{ backgroundColor: color, borderColor: color }}>
                         <div className={styles.pinContent} style={{ overflow: 'hidden' }}>
-                          {client.photo && <img src={client.photo} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} alt="client" />}
+                          <img 
+                            src={client.photo || '/images/default_avatar.png'} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} 
+                            alt="client" 
+                          />
                         </div>
                       </div>
                     </div>
