@@ -63,6 +63,9 @@ export default function ClientsPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [ocrParsedClients, setOcrParsedClients] = useState<any[]>([]);
+  const [ocrPdfUrl, setOcrPdfUrl] = useState<string | null>(null);
+  const [isOcrReviewModalOpen, setIsOcrReviewModalOpen] = useState(false);
 
   if (!isLoaded) return <div style={{ padding: '2rem', textAlign: 'center' }}>데이터 불러오는 중...</div>;
 
@@ -144,17 +147,17 @@ export default function ClientsPage() {
       }
 
       const parsedData = await response.json();
+      const parsedClients = Array.isArray(parsedData.clients) ? parsedData.clients : [parsedData];
       
-      setEditingClient(null);
-      setFormData({
-        name: parsedData.name || '',
-        age: parsedData.age || '',
-        gender: parsedData.gender || '남',
-        address: parsedData.address || '',
-        phone: parsedData.phone || '',
-        mobile: parsedData.mobile || '',
-        products: Array.isArray(parsedData.products) ? parsedData.products.join(', ') : '',
-        contractDate: parsedData.contractDate || '',
+      const mappedClients = parsedClients.map((c: any) => ({
+        name: c.name || '',
+        age: c.age || '',
+        gender: c.gender || '남',
+        address: c.address || '',
+        phone: c.phone || '',
+        mobile: c.mobile || '',
+        products: Array.isArray(c.products) ? c.products.join(', ') : (c.products || ''),
+        contractDate: c.contractDate || '',
         contractAmount: 0,
         lastMeetingDate: '',
         status: 'active',
@@ -163,9 +166,11 @@ export default function ClientsPage() {
         notes: '',
         consultations: [],
         gifts: []
-      });
-      setIsModalOpen(true);
-      alert('PDF 분석 완료! 내용을 확인하고 저장해주세요.');
+      }));
+
+      setOcrParsedClients(mappedClients);
+      setOcrPdfUrl(URL.createObjectURL(file));
+      setIsOcrReviewModalOpen(true);
 
     } catch (err: any) {
       console.error(err);
@@ -173,6 +178,28 @@ export default function ClientsPage() {
     } finally {
       setIsUploading(false);
       e.target.value = ''; // Reset
+    }
+  };
+
+  const handleOcrClientChange = (index: number, field: string, value: string) => {
+    const newClients = [...ocrParsedClients];
+    newClients[index] = { ...newClients[index], [field]: value };
+    setOcrParsedClients(newClients);
+  };
+
+  const handleRegisterOcrClients = async () => {
+    setIsSubmitting(true);
+    try {
+      await addMultipleClients(ocrParsedClients);
+      alert(`${ocrParsedClients.length}명의 고객이 성공적으로 등록되었습니다.`);
+      setIsOcrReviewModalOpen(false);
+      setOcrParsedClients([]);
+      setOcrPdfUrl(null);
+    } catch (err) {
+      console.error(err);
+      alert('고객 등록 중 오류가 발생했습니다.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -534,6 +561,80 @@ export default function ClientsPage() {
                 }} 
                 style={{ width: '100%', height: '100%' }}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OCR Multi-Client Review Modal */}
+      {isOcrReviewModalOpen && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.ocrModalContent}>
+            <div className={styles.ocrModalHeader}>
+              <h2 style={{ margin: 0 }}>PDF 스캔 결과 검토 ({ocrParsedClients.length}명)</h2>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button className={styles.cancelBtn} onClick={() => setIsOcrReviewModalOpen(false)}>취소</button>
+                <button className={styles.submitBtn} onClick={handleRegisterOcrClients} disabled={isSubmitting}>
+                  {isSubmitting ? '등록 중...' : '모두 등록하기'}
+                </button>
+              </div>
+            </div>
+            
+            <div className={styles.ocrModalBody}>
+              {/* Left Pane: PDF Viewer */}
+              <div className={styles.ocrPdfPane}>
+                {ocrPdfUrl ? (
+                  <iframe src={ocrPdfUrl} width="100%" height="100%" style={{ border: 'none', borderRadius: '8px' }} title="PDF Viewer" />
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>PDF를 불러올 수 없습니다.</div>
+                )}
+              </div>
+              
+              {/* Right Pane: Editable Client Forms */}
+              <div className={styles.ocrFormsPane}>
+                {ocrParsedClients.length === 0 && <p style={{ textAlign: 'center', marginTop: '2rem', color: '#666' }}>추출된 고객 정보가 없습니다.</p>}
+                {ocrParsedClients.map((client, index) => (
+                  <div key={index} className={styles.ocrClientCard}>
+                    <div className={styles.ocrClientCardHeader}>
+                      <h3 style={{ margin: 0 }}>고객 {index + 1}</h3>
+                      <button className={styles.deleteBtn} onClick={() => {
+                        const newClients = [...ocrParsedClients];
+                        newClients.splice(index, 1);
+                        setOcrParsedClients(newClients);
+                      }} style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>삭제</button>
+                    </div>
+                    <div className={styles.ocrClientForm}>
+                      <div className={styles.formGroup} style={{ flex: '1 1 45%' }}>
+                        <label>이름</label>
+                        <input className={styles.inputField} style={{ padding: '0.5rem', width: '100%', border: '1px solid #ccc', borderRadius: '4px' }} value={client.name} onChange={(e) => handleOcrClientChange(index, 'name', e.target.value)} />
+                      </div>
+                      <div className={styles.formGroup} style={{ flex: '1 1 45%' }}>
+                        <label>연락처</label>
+                        <input className={styles.inputField} style={{ padding: '0.5rem', width: '100%', border: '1px solid #ccc', borderRadius: '4px' }} value={client.mobile} onChange={(e) => handleOcrClientChange(index, 'mobile', e.target.value)} />
+                      </div>
+                      <div className={styles.formGroup} style={{ flex: '1 1 45%' }}>
+                        <label>나이</label>
+                        <input className={styles.inputField} style={{ padding: '0.5rem', width: '100%', border: '1px solid #ccc', borderRadius: '4px' }} value={client.age} onChange={(e) => handleOcrClientChange(index, 'age', e.target.value)} />
+                      </div>
+                      <div className={styles.formGroup} style={{ flex: '1 1 45%' }}>
+                        <label>성별</label>
+                        <select className={styles.selectField} style={{ padding: '0.5rem', width: '100%', border: '1px solid #ccc', borderRadius: '4px' }} value={client.gender} onChange={(e) => handleOcrClientChange(index, 'gender', e.target.value)}>
+                          <option value="남">남</option>
+                          <option value="여">여</option>
+                        </select>
+                      </div>
+                      <div className={styles.formGroup} style={{ flex: '1 1 100%' }}>
+                        <label>가입상품</label>
+                        <input className={styles.inputField} style={{ padding: '0.5rem', width: '100%', border: '1px solid #ccc', borderRadius: '4px' }} value={client.products} onChange={(e) => handleOcrClientChange(index, 'products', e.target.value)} />
+                      </div>
+                      <div className={styles.formGroup} style={{ flex: '1 1 100%' }}>
+                        <label>주소</label>
+                        <input className={styles.inputField} style={{ padding: '0.5rem', width: '100%', border: '1px solid #ccc', borderRadius: '4px' }} value={client.address} onChange={(e) => handleOcrClientChange(index, 'address', e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
