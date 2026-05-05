@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             role: 'admin',
             isActive: true,
             validUntil: '2099-12-31',
-            password: 'admin' // In real app, hash this!
+            password: 'admin1234' // Changed to match walkthrough
           };
           await setDoc(adminDocRef, defaultAdmin);
         }
