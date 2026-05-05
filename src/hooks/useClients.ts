@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { collection, getDocs, setDoc, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export interface ConsultationHistory {
   id: string;
@@ -47,20 +49,35 @@ export function useClients() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem('insurepro_clients');
-    if (stored) {
-      setClients(JSON.parse(stored));
-    } else {
-      setClients(DEFAULT_CLIENTS);
-      localStorage.setItem('insurepro_clients', JSON.stringify(DEFAULT_CLIENTS));
-    }
-    setIsLoaded(true);
+    const fetchClients = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'clients'));
+        if (querySnapshot.empty) {
+          // Initialize with default clients if DB is empty
+          const batch = writeBatch(db);
+          DEFAULT_CLIENTS.forEach(client => {
+            const docRef = doc(collection(db, 'clients'), client.id);
+            batch.set(docRef, client);
+          });
+          await batch.commit();
+          setClients(DEFAULT_CLIENTS);
+        } else {
+          const loadedClients: Client[] = [];
+          querySnapshot.forEach((doc) => {
+            loadedClients.push(doc.data() as Client);
+          });
+          setClients(loadedClients);
+        }
+      } catch (error) {
+        console.error("Error fetching clients: ", error);
+        // Fallback to empty array if network error
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+    
+    fetchClients();
   }, []);
-
-  const saveClients = (newClients: Client[]) => {
-    setClients(newClients);
-    localStorage.setItem('insurepro_clients', JSON.stringify(newClients));
-  };
 
   const getRandomLatLng = () => {
     const lat = 37.4979 + (Math.random() - 0.5) * 0.02;
@@ -89,10 +106,9 @@ export function useClients() {
     let result = await search(address);
     if (result) return result;
 
-    // Fallback: Try with just the first two parts (e.g. "안양시 동안구")
     const parts = address.split(' ').filter(p => p.trim() !== '');
     if (parts.length >= 2) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Respect rate limit
+      await new Promise(resolve => setTimeout(resolve, 1000));
       result = await search(`${parts[0]} ${parts[1]}`);
       if (result) return result;
     }
@@ -107,37 +123,52 @@ export function useClients() {
     }
     if (!coords) coords = getRandomLatLng();
 
-    const newClient = { ...client, id: Date.now().toString(), ...coords };
-    saveClients([...clients, newClient]);
+    const newId = Date.now().toString();
+    const newClient: Client = { ...client, id: newId, ...coords };
+    
+    try {
+      await setDoc(doc(collection(db, 'clients'), newId), newClient);
+      setClients(prev => [...prev, newClient]);
+    } catch (e) {
+      console.error("Error adding document: ", e);
+    }
   };
 
   const updateClient = async (id: string, updatedData: Partial<Client>) => {
     let coords = undefined;
     if (updatedData.address) {
-      // Find old client
       const oldClient = clients.find(c => c.id === id);
       if (oldClient && oldClient.address !== updatedData.address) {
         let fetchedCoords = await geocodeAddress(updatedData.address);
-        if (!fetchedCoords) fetchedCoords = getRandomLatLng(); // Force coordinate update
+        if (!fetchedCoords) fetchedCoords = getRandomLatLng();
         coords = fetchedCoords;
       }
     }
 
-    const newClients = clients.map(c => {
-      if (c.id === id) {
-        return coords ? { ...c, ...updatedData, ...coords } : { ...c, ...updatedData };
-      }
-      return c;
-    });
-    saveClients(newClients);
+    try {
+      const finalUpdateData = coords ? { ...updatedData, ...coords } : { ...updatedData };
+      await updateDoc(doc(db, 'clients', id), finalUpdateData);
+      
+      setClients(prev => prev.map(c => {
+        if (c.id === id) {
+          return { ...c, ...finalUpdateData };
+        }
+        return c;
+      }));
+    } catch (e) {
+      console.error("Error updating document: ", e);
+    }
   };
 
-  const deleteClient = (id: string) => {
-    const newClients = clients.filter(c => c.id !== id);
-    saveClients(newClients);
+  const deleteClient = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'clients', id));
+      setClients(prev => prev.filter(c => c.id !== id));
+    } catch (e) {
+      console.error("Error deleting document: ", e);
+    }
   };
 
-  // 엑셀에서 추출한 데이터 일괄 추가 (Geocoding 처리 포함 - API 제한 때문에 delay 필요)
   const addMultipleClients = async (newClients: Omit<Client, 'id'>[]) => {
     const clientsWithIds: Client[] = [];
     
@@ -146,7 +177,6 @@ export function useClients() {
       let coords = null;
       if (c.address) {
         coords = await geocodeAddress(c.address);
-        // Rate limit for Nominatim (1 req per sec)
         if (i < newClients.length - 1) await new Promise(resolve => setTimeout(resolve, 1000));
       }
       if (!coords) coords = getRandomLatLng();
@@ -154,10 +184,18 @@ export function useClients() {
       clientsWithIds.push({ ...c, id: Date.now().toString() + i, ...coords });
     }
     
-    // 이전에 있던 상태(클로저 문제 방지)를 최신으로 가져오기 위해 로컬스토리지 다시 읽기
-    const stored = localStorage.getItem('insurepro_clients');
-    const currentClients = stored ? JSON.parse(stored) : clients;
-    saveClients([...currentClients, ...clientsWithIds]);
+    try {
+      const batch = writeBatch(db);
+      clientsWithIds.forEach(client => {
+        const docRef = doc(collection(db, 'clients'), client.id);
+        batch.set(docRef, client);
+      });
+      await batch.commit();
+      
+      setClients(prev => [...prev, ...clientsWithIds]);
+    } catch (e) {
+      console.error("Error adding multiple documents: ", e);
+    }
   };
 
   return {
