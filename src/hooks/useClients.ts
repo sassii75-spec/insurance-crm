@@ -118,18 +118,24 @@ export function useClients() {
     
     const searchKakao = (addr: string): Promise<{lat: number, lng: number} | null> => {
       return new Promise((resolve) => {
-        geocoder.addressSearch(addr, function(result: any, status: any) {
-          if (status === window.kakao.maps.services.Status.OK) {
-            resolve({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
-          } else {
-            resolve(null);
-          }
-        });
+        try {
+          geocoder.addressSearch(addr, function(result: any, status: any) {
+            if (status === window.kakao.maps.services.Status.OK && result[0]) {
+              resolve({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
+            } else {
+              resolve(null);
+            }
+          });
+        } catch (e) {
+          console.error('Kakao Geocoder Error:', e);
+          resolve(null);
+        }
       });
     };
 
-    let coords = await searchKakao(address);
-    if (coords) return coords;
+    try {
+      let coords = await searchKakao(address);
+      if (coords) return coords;
 
     // Fallback 1: Remove anything after comma
     const noComma = address.split(',')[0].trim();
@@ -152,6 +158,9 @@ export function useClients() {
       coords = await searchKakao(parts.join(' '));
       if (coords) return coords;
     }
+    } catch (e) {
+      console.error('Geocoder Exception:', e);
+    }
 
     // If all fails, use random
     return null;
@@ -166,7 +175,19 @@ export function useClients() {
 
     const newId = Date.now().toString() + '_' + (client.userId || user?.id || 'unknown');
     const today = new Date().toISOString().split('T')[0];
-    const newClient: Client = { ...client, id: newId, ...coords, userId: client.userId || user?.id, registrationDate: client.registrationDate || today };
+    
+    // Firebase는 undefined를 허용하지 않으므로 빈 문자열이나 기본값으로 처리
+    const safeClient = Object.fromEntries(
+      Object.entries(client).map(([k, v]) => [k, v === undefined ? null : v])
+    );
+    
+    const newClient: Client = { 
+      ...(safeClient as any), 
+      id: newId, 
+      ...coords, 
+      userId: client.userId || user?.id || 'unknown', 
+      registrationDate: client.registrationDate || today 
+    };
     
     try {
       await setDoc(doc(collection(db, 'clients'), newId), newClient);

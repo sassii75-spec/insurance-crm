@@ -302,7 +302,9 @@ export default function ClientsPage() {
     const submitData = {
       ...formData,
       status: formData.status as 'active' | 'opportunity' | 'terminated',
-      products: formData.products.split(',').map(p => p.trim()).filter(p => p)
+      products: typeof formData.products === 'string' 
+        ? formData.products.split(',').map(p => p.trim()).filter(p => p) 
+        : formData.products
     };
 
     if (editingClient) {
@@ -637,7 +639,8 @@ export default function ClientsPage() {
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <DaumPostcode 
                 onComplete={(data) => {
-                  setFormData({ ...formData, address: data.roadAddress || data.jibunAddress });
+                  const safeAddress = data.roadAddress || data.jibunAddress || data.address || '';
+                  setFormData({ ...formData, address: safeAddress });
                   setIsAddressModalOpen(false);
                 }} 
                 style={{ width: '100%', height: '100%' }}
