@@ -192,8 +192,10 @@ export function useClients() {
     try {
       await setDoc(doc(collection(db, 'clients'), newId), newClient);
       setClients(prev => [...prev, newClient]);
+      return true;
     } catch (e) {
       console.error("Error adding document: ", e);
+      throw e;
     }
   };
 

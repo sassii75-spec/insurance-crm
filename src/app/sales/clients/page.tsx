@@ -307,13 +307,21 @@ export default function ClientsPage() {
         : formData.products
     };
 
-    if (editingClient) {
-      await updateClient(editingClient.id, submitData);
-    } else {
-      await addClient(submitData as any);
+    try {
+      if (editingClient) {
+        await updateClient(editingClient.id, submitData);
+        alert('고객 정보가 성공적으로 수정되었습니다.');
+      } else {
+        await addClient(submitData as any);
+        alert('신규 고객이 성공적으로 등록되었습니다.');
+      }
+      setIsModalOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      alert('고객 저장 중 오류가 발생했습니다. 권한이 없거나 네트워크 문제일 수 있습니다.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
-    setIsModalOpen(false);
   };
 
   const handleDelete = (id: string, name: string) => {
