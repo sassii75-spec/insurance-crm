@@ -461,7 +461,9 @@ export default function ClientsPage() {
                         {client.status === 'active' ? '계약중' : client.status === 'opportunity' ? '기회' : '해지'}
                       </span>
                     </div>
-                    <span className={styles.subInfo}>{client.mobile} | {client.address.split(' ').slice(0,2).join(' ')}</span>
+                    <span className={styles.subInfo}>
+                      등록: {client.registrationDate || '-'} | {client.mobile} | {client.address.split(' ').slice(0,2).join(' ')}
+                    </span>
                   </div>
                 </div>
                 {expandedId === client.id ? <ChevronUp size={20} color="var(--text-muted)"/> : <ChevronDown size={20} color="var(--text-muted)"/>}
