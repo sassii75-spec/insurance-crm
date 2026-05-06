@@ -638,6 +638,7 @@ export default function ClientsPage() {
             </div>
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <DaumPostcode 
+                scriptUrl="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"
                 onComplete={(data) => {
                   const safeAddress = data.roadAddress || data.jibunAddress || data.address || '';
                   setFormData({ ...formData, address: safeAddress });
