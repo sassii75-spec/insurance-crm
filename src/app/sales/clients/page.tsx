@@ -672,7 +672,7 @@ export default function ClientsPage() {
                 scriptUrl="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"
                 onComplete={(data) => {
                   const safeAddress = data.roadAddress || data.jibunAddress || data.address || '';
-                  setFormData({ ...formData, address: safeAddress });
+                  setFormData({ ...formData, address: safeAddress ? `${safeAddress}, ` : '' });
                   setIsAddressModalOpen(false);
                 }} 
                 style={{ width: '100%', height: '100%' }}
