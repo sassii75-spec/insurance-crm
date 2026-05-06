@@ -427,6 +427,10 @@ export default function ClientsPage() {
   }
   if (sortOrder === 'nameAsc') {
     displayClients.sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'));
+  } else if (sortOrder === 'default') {
+    // 기본(등록순)은 최신 등록자가 가장 위로 오도록(내림차순) 정렬
+    // id가 Date.now() 기반이거나 숫자형태이므로 문자열 역순 정렬 사용
+    displayClients.sort((a, b) => b.id.localeCompare(a.id));
   }
 
   return (
