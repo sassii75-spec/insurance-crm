@@ -6,6 +6,7 @@ import { useAuth, User } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, doc, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { hashPassword } from "@/lib/crypto";
 
 export default function AdminUsersPage() {
   const { user } = useAuth();
@@ -51,9 +52,10 @@ export default function AdminUsersPage() {
     if (confirm(`${userObj.name}님의 비밀번호를 초기화하고 안내 메일을 발송하시겠습니까?`)) {
       // 6-digit temp code
       const tempCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const hashedTempCode = await hashPassword(tempCode, userObj.id);
       
       await updateDoc(doc(db, "users", userObj.id), { 
-        password: tempCode,
+        password: hashedTempCode,
         requirePasswordChange: true
       });
       
@@ -89,11 +91,13 @@ export default function AdminUsersPage() {
       return;
     }
 
+    const hashedPassword = await hashPassword(formData.password, formData.id);
+
     const newUser: User = {
       id: formData.id,
       name: formData.name,
       email: formData.email,
-      password: formData.password,
+      password: hashedPassword,
       role: 'user',
       isActive: true,
       validUntil: formData.validUntil,

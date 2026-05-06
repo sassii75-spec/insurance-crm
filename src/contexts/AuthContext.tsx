@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { hashPassword } from '@/lib/crypto';
 
 export interface User {
   id: string; // The username (e.g., 'admin', 'user1')
@@ -48,7 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             role: 'admin',
             isActive: true,
             validUntil: '2099-12-31',
-            password: 'admin1234' // Changed to match walkthrough
+            password: await hashPassword('admin1234', 'admin') // Hashed default password
           };
           await setDoc(adminDocRef, defaultAdmin);
         }

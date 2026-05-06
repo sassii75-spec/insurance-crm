@@ -6,6 +6,7 @@ import { useAuth, User } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { hashPassword } from "@/lib/crypto";
 
 export default function LoginPage() {
   const [id, setId] = useState("");
@@ -37,8 +38,9 @@ export default function LoginPage() {
 
       if (userSnap.exists()) {
         const userData = userSnap.data() as User;
+        const hashedPassword = await hashPassword(password, id);
         
-        if (userData.password !== password) {
+        if (userData.password !== hashedPassword) {
           setError("비밀번호가 일치하지 않습니다.");
           setIsLoading(false);
           return;
@@ -96,12 +98,14 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const userRef = doc(db, "users", changingPasswordUser!.id);
+      const hashedPassword = await hashPassword(newPassword, changingPasswordUser!.id);
+      
       await updateDoc(userRef, {
-        password: newPassword,
+        password: hashedPassword,
         requirePasswordChange: false
       });
       
-      const updatedUser = { ...changingPasswordUser!, password: newPassword, requirePasswordChange: false };
+      const updatedUser = { ...changingPasswordUser!, password: hashedPassword, requirePasswordChange: false };
       login(updatedUser);
       router.push("/sales/dashboard");
     } catch (err) {
