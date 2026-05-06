@@ -114,12 +114,24 @@ export function useClients() {
       return null;
     }
     
-    const geocoder = new window.kakao.maps.services.Geocoder();
+    let geocoder;
+    try {
+      geocoder = new window.kakao.maps.services.Geocoder();
+    } catch (e) {
+      console.error("Failed to initialize Kakao Geocoder:", e);
+      return null;
+    }
     
     const searchKakao = (addr: string): Promise<{lat: number, lng: number} | null> => {
       return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          console.warn("Kakao Geocoder Timeout for:", addr);
+          resolve(null);
+        }, 3000);
+
         try {
           geocoder.addressSearch(addr, function(result: any, status: any) {
+            clearTimeout(timeout);
             if (status === window.kakao.maps.services.Status.OK && result[0]) {
               resolve({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
             } else {
@@ -127,6 +139,7 @@ export function useClients() {
             }
           });
         } catch (e) {
+          clearTimeout(timeout);
           console.error('Kakao Geocoder Error:', e);
           resolve(null);
         }
