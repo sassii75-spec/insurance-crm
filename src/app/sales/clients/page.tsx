@@ -269,8 +269,31 @@ export default function ClientsPage() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, photo: reader.result as string }));
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          const MAX_DIMENSION = 800; // 최대 해상도를 800px로 제한하여 Firestore 1MB 제한 방어
+          if (width > height && width > MAX_DIMENSION) {
+            height *= MAX_DIMENSION / width;
+            width = MAX_DIMENSION;
+          } else if (height > MAX_DIMENSION) {
+            width *= MAX_DIMENSION / height;
+            height = MAX_DIMENSION;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); // 60% 품질로 압축
+          setFormData(prev => ({ ...prev, photo: compressedBase64 }));
+        };
+        img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -318,7 +341,7 @@ export default function ClientsPage() {
       setIsModalOpen(false);
     } catch (err: any) {
       console.error(err);
-      alert('고객 저장 중 오류가 발생했습니다. 권한이 없거나 네트워크 문제일 수 있습니다.');
+      alert(`고객 저장 중 오류가 발생했습니다.\n상세: ${err.message || '알 수 없는 오류'}`);
     } finally {
       setIsSubmitting(false);
     }
