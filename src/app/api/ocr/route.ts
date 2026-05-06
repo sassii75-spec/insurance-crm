@@ -77,6 +77,7 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error('OCR API Error:', error);
-    return NextResponse.json({ error: error.message || '서버 오류가 발생했습니다.' }, { status: 500 });
+    // 내부 에러 메시지가 클라이언트에 노출되지 않도록 마스킹
+    return NextResponse.json({ error: '문서 분석 중 서버 오류가 발생했습니다.' }, { status: 500 });
   }
 }

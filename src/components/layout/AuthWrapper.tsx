@@ -2,10 +2,11 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import styles from "@/app/Layout.module.css";
 import { Search, Map as MapIcon, Users, Calendar, BarChart, Settings, LogOut } from "lucide-react";
 import Link from "next/link";
+import Sidebar from "./Sidebar";
 
 export default function AuthWrapper({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -13,6 +14,14 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('q') || '';
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 768);
+    handleResize(); // initial check
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -46,6 +55,8 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
 
   return (
     <div className={styles.mainLayout}>
+      {isDesktop && <Sidebar />}
+
       <div className={styles.contentWrapper}>
         {/* 상단 플로팅 검색바 (모바일용) */}
         <header className={styles.floatingHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -68,7 +79,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
         {children}
       </div>
 
-      {/* 하단 내비게이션 (Bottom Navigation) */}
+      {/* 하단 내비게이션 (Bottom Navigation) - 모바일용 */}
       <nav className={styles.bottomNav}>
         <Link href="/sales/dashboard" className={`${styles.navItem} ${pathname.includes('dashboard') || pathname.includes('map') ? styles.active : ''}`}>
           <MapIcon size={24} />

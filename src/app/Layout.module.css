@@ -1,20 +1,33 @@
 .mainLayout {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
   position: relative;
+}
+
+@media (min-width: 768px) {
+  .mainLayout {
+    flex-direction: row;
+  }
 }
 
 .contentWrapper {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 60px); /* 60px for bottom nav */
+  height: calc(100dvh - 60px); /* 60px for bottom nav */
   position: relative;
   z-index: 10;
   overflow-y: auto;
+}
+
+@media (min-width: 768px) {
+  .contentWrapper {
+    height: 100dvh;
+    padding-left: 260px; /* Sidebar width */
+  }
 }
 
 /* Floating Search Header for Mobile */
@@ -33,6 +46,12 @@
   padding: 0.5rem 1rem;
   box-shadow: var(--shadow-md);
   border: var(--glass-border);
+}
+
+@media (min-width: 768px) {
+  .floatingHeader {
+    display: none !important; /* Hide on desktop */
+  }
 }
 
 .searchInput {
@@ -62,6 +81,12 @@
   right: 0;
   z-index: 50;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+}
+
+@media (min-width: 768px) {
+  .bottomNav {
+    display: none !important; /* Hide on desktop */
+  }
 }
 
 .navItem {

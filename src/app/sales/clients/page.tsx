@@ -5,7 +5,8 @@ import styles from './Clients.module.css';
 import { useClients, Client } from '@/hooks/useClients';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileUp, Plus, ChevronDown, ChevronUp, X, Edit2, Trash2, Download } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import readXlsxFile from 'read-excel-file/universal';
+import writeXlsxFile from 'write-excel-file/universal';
 import DaumPostcode from 'react-daum-postcode';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
@@ -82,26 +83,38 @@ export default function ClientsPage() {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws, { range: 2 }) as any[];
+        const arrayBuffer = evt.target?.result as ArrayBuffer;
+        const rows = await readXlsxFile(arrayBuffer);
+        
+        if (rows.length < 2) throw new Error("데이터가 없습니다.");
+        
+        // rows[0] is header
+        const headers = Array.isArray(rows[0]) ? rows[0].map(cell => String(cell)) : [];
+        
+        const data = rows.slice(1).map(row => {
+          const obj: any = {};
+          if (Array.isArray(row)) {
+            row.forEach((cell, i) => {
+              if (headers[i]) obj[headers[i]] = cell;
+            });
+          }
+          return obj;
+        });
 
         const newClients = data.map(row => ({
-          name: row['고객명'] || row['이름'] || '',
+          name: String(row['고객명'] || row['이름'] || ''),
           age: String(row['나이'] || ''),
-          gender: row['성별'] || '남',
-          address: row['주소'] || '',
+          gender: String(row['성별'] || '남'),
+          address: String(row['주소'] || ''),
           phone: String(row['전화번호'] || ''),
           mobile: String(row['핸드폰번호'] || ''),
           products: row['가입상품'] ? String(row['가입상품']).split(',').map(s=>s.trim()) : [],
-          contractDate: row['계약일자'] || '',
-          lastMeetingDate: row['최근미팅일자'] || '',
+          contractDate: row['계약일자'] ? String(row['계약일자']) : '',
+          lastMeetingDate: row['최근미팅일자'] ? String(row['최근미팅일자']) : '',
           plannerAllocationMonth: row['플래너배분월'] ? String(row['플래너배분월']) : '',
-          notes: row['기타'] || '',
-          registrationDate: row['등록일자'] || '',
-          userId: row['담당플래너'] || '',
+          notes: row['기타'] ? String(row['기타']) : '',
+          registrationDate: row['등록일자'] ? String(row['등록일자']) : '',
+          userId: row['담당플래너'] ? String(row['담당플래너']) : '',
           status: (row['상태'] === '계약중' ? 'active' : row['상태'] === '해지' ? 'terminated' : 'opportunity') as 'active'|'opportunity'|'terminated'
         }));
 
@@ -114,7 +127,7 @@ export default function ClientsPage() {
         setIsUploading(false);
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
     e.target.value = ''; // Reset
   };
 
@@ -307,7 +320,7 @@ export default function ClientsPage() {
     }
   };
 
-  const handleExcelDownload = () => {
+  const handleExcelDownload = async () => {
     const currentCountStr = localStorage.getItem('insurepro_download_count') || '0';
     const nextCount = parseInt(currentCountStr, 10) + 1;
     localStorage.setItem('insurepro_download_count', String(nextCount));
@@ -316,33 +329,50 @@ export default function ClientsPage() {
     const formattedDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
     const userId = "admin(영업관리자)";
 
-    const dataRows = displayClients.map(c => ({
-      '고객명': c.name,
-      '나이': c.age,
-      '성별': c.gender,
-      '전화번호': c.phone,
-      '핸드폰번호': c.mobile,
-      '주소': c.address,
-      '상태': c.status === 'active' ? '계약중' : c.status === 'opportunity' ? '기회' : '해지',
-      '가입상품': c.products.join(', '),
-      '계약일자': c.contractDate,
-      '최근미팅일자': c.lastMeetingDate,
-      '플래너배분월': c.plannerAllocationMonth || '',
-      '등록일자': c.registrationDate || '',
-      '담당플래너': getPlannerName(c.userId),
-      '기타': c.notes || ''
-    }));
+    const dataRows = displayClients.map(c => [
+      { type: String, value: c.name },
+      { type: String, value: c.age },
+      { type: String, value: c.gender },
+      { type: String, value: c.phone },
+      { type: String, value: c.mobile },
+      { type: String, value: c.address },
+      { type: String, value: c.status === 'active' ? '계약중' : c.status === 'opportunity' ? '기회' : '해지' },
+      { type: String, value: c.products.join(', ') },
+      { type: String, value: c.contractDate },
+      { type: String, value: c.lastMeetingDate },
+      { type: String, value: c.plannerAllocationMonth || '' },
+      { type: String, value: c.registrationDate || '' },
+      { type: String, value: getPlannerName(c.userId) },
+      { type: String, value: c.notes || '' }
+    ]);
 
-    const ws = XLSX.utils.json_to_sheet(dataRows, { origin: "A3" } as any);
+    const headerRow: any[] = [
+      { value: '고객명', fontWeight: 'bold' },
+      { value: '나이', fontWeight: 'bold' },
+      { value: '성별', fontWeight: 'bold' },
+      { value: '전화번호', fontWeight: 'bold' },
+      { value: '핸드폰번호', fontWeight: 'bold' },
+      { value: '주소', fontWeight: 'bold' },
+      { value: '상태', fontWeight: 'bold' },
+      { value: '가입상품', fontWeight: 'bold' },
+      { value: '계약일자', fontWeight: 'bold' },
+      { value: '최근미팅일자', fontWeight: 'bold' },
+      { value: '플래너배분월', fontWeight: 'bold' },
+      { value: '등록일자', fontWeight: 'bold' },
+      { value: '담당플래너', fontWeight: 'bold' },
+      { value: '기타', fontWeight: 'bold' }
+    ];
 
-    XLSX.utils.sheet_add_aoa(ws, [
-      ["[보안 안내] 본 문서는 지정된 용도로만 사용 가능하며, 무단 유출 시 법적 책임을 질 수 있습니다."],
-      [`다운로드 일시: ${formattedDate} | 사용자 아이디: ${userId} | 누적 다운로드: ${nextCount}회`]
-    ], { origin: "A1" });
+    const data: any[] = [
+      [{ value: "[보안 안내] 본 문서는 지정된 용도로만 사용 가능하며, 무단 유출 시 법적 책임을 질 수 있습니다.", span: 14 }],
+      [{ value: `다운로드 일시: ${formattedDate} | 사용자 아이디: ${userId} | 누적 다운로드: ${nextCount}회`, span: 14 }],
+      headerRow,
+      ...dataRows
+    ];
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "고객DB");
-    XLSX.writeFile(wb, `고객DB_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`);
+    await writeXlsxFile(data, {
+      fileName: `고객DB_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`
+    } as any);
   };
 
   // Filter & Sort Logic

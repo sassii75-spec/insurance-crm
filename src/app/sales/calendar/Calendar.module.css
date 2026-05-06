@@ -10,6 +10,13 @@
   margin: 0 auto;
 }
 
+@media (min-width: 768px) {
+  .container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+}
+
 .header {
   display: flex;
   justify-content: space-between;

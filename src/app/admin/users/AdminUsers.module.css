@@ -2,8 +2,15 @@
   padding: 1.5rem;
   padding-top: 5rem; /* Add extra padding to avoid overlapping with floating header */
   background: var(--bg-main);
-  min-height: 100vh;
-  padding-bottom: 100px;
+  min-height: 100%;
+  padding-bottom: 120px; /* Increased to fix GNB overlap */
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
 }
 
 .header {

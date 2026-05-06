@@ -21,6 +21,12 @@
   border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
+@media (min-width: 768px) {
+  .filterPanel {
+    bottom: 20px;
+  }
+}
+
 .filterBtn {
   display: flex;
   align-items: center;
@@ -127,6 +133,23 @@
   transform: translateY(150%);
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (min-width: 768px) {
+  .bottomSheet {
+    bottom: 0px;
+    border-radius: var(--radius-xl) 0 0 0;
+    width: 400px;
+    right: 0;
+    left: auto;
+    height: 100%;
+    animation: slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+
+@keyframes slideLeft {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 
 @keyframes slideUp {
