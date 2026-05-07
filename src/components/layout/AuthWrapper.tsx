@@ -32,16 +32,15 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     setLocalSearch(e.target.value);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      const params = new URLSearchParams(searchParams.toString());
-      if (localSearch) {
-        params.set('q', localSearch);
-      } else {
-        params.delete('q');
-      }
-      router.replace(`${pathname}?${params.toString()}`);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams(searchParams.toString());
+    if (localSearch) {
+      params.set('q', localSearch);
+    } else {
+      params.delete('q');
     }
+    router.replace(`${pathname}?${params.toString()}`);
   };
 
   useEffect(() => {
@@ -70,17 +69,16 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       <div className={styles.contentWrapper}>
         {/* 상단 플로팅 검색바 (모바일용) */}
         <header className={styles.floatingHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
             <Search size={20} style={{ color: 'var(--text-muted)', marginRight: '0.5rem' }} />
             <input 
-              type="text" 
+              type="search" 
               placeholder="이름, 주소 검색 (입력 후 Enter)" 
               className={styles.searchInput} 
               value={localSearch}
               onChange={handleSearch}
-              onKeyDown={handleKeyDown}
             />
-          </div>
+          </form>
           <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>
             <LogOut size={16} /> 로그아웃
           </button>
