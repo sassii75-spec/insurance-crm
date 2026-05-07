@@ -59,50 +59,22 @@
 
 /* Beautiful Pin Markers */
 .pinMarker {
-  width: 32px !important;
-  height: 32px !important;
-  background-color: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   position: relative;
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out;
 }
 
-.pinTooltip {
-  position: absolute;
-  bottom: 110%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s, bottom 0.2s;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  z-index: 10;
-}
-
-.pinTooltip::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  margin-left: -5px;
-  border-width: 5px;
-  border-style: solid;
-  border-color: rgba(0, 0, 0, 0.8) transparent transparent transparent;
-}
-
-.pinMarker:hover .pinTooltip {
-  opacity: 1;
-  bottom: 125%;
+.pinMarker:hover {
+  transform: scale(1.1);
+  z-index: 1000 !important;
 }
 
 .pin {
-  width: 32px;
-  height: 32px;
+  width: 48px;
+  height: 48px;
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
   border: 3px solid white;
@@ -110,14 +82,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  background: white;
+  margin-bottom: 4px; /* Space for the name */
 }
 
 .pinContent {
   transform: rotate(45deg);
-  width: 24px;
-  height: 24px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
+  overflow: hidden;
   background: white;
+}
+
+.pinName {
+  background: white;
+  color: #1e293b;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  border: 1px solid #e2e8f0;
 }
 
 /* Bottom Sheet Card */

@@ -14,7 +14,12 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('q') || '';
+  const [localSearch, setLocalSearch] = useState(searchQuery);
   const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleResize = () => setIsDesktop(window.innerWidth >= 768);
@@ -24,14 +29,19 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   }, []);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    const params = new URLSearchParams(searchParams.toString());
-    if (val) {
-      params.set('q', val);
-    } else {
-      params.delete('q');
+    setLocalSearch(e.target.value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const params = new URLSearchParams(searchParams.toString());
+      if (localSearch) {
+        params.set('q', localSearch);
+      } else {
+        params.delete('q');
+      }
+      router.replace(`${pathname}?${params.toString()}`);
     }
-    router.replace(`${pathname}?${params.toString()}`);
   };
 
   useEffect(() => {
@@ -64,10 +74,11 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
             <Search size={20} style={{ color: 'var(--text-muted)', marginRight: '0.5rem' }} />
             <input 
               type="text" 
-              placeholder="고객 이름, 주소 검색" 
+              placeholder="이름, 주소 검색 (입력 후 Enter)" 
               className={styles.searchInput} 
-              value={searchQuery}
+              value={localSearch}
               onChange={handleSearch}
+              onKeyDown={handleKeyDown}
             />
           </div>
           <button onClick={logout} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>

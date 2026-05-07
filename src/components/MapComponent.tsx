@@ -162,16 +162,16 @@ export default function MapComponent() {
                   zIndex={selectedClient?.id === client.id ? 100 : 1}
                 >
                   <div className={styles.pinMarker} onClick={() => setSelectedClient(client)}>
-                    <div className={styles.pinTooltip}>{client.name}</div>
                     <div className={styles.pin} style={{ backgroundColor: color, borderColor: color }}>
-                      <div className={styles.pinContent} style={{ overflow: 'hidden' }}>
+                      <div className={styles.pinContent}>
                         <img 
-                          src={client.photo || '/images/default_avatar.png'} 
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} 
+                          src={client.photo || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(client.name + client.id)}&backgroundColor=e2e8f0`} 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                           alt="client" 
                         />
                       </div>
                     </div>
+                    <div className={styles.pinName}>{client.name}</div>
                   </div>
                 </CustomOverlayMap>
               );
@@ -191,16 +191,16 @@ export default function MapComponent() {
                     zIndex={selectedClient?.id === client.id ? 100 : 1}
                   >
                     <div className={styles.pinMarker} onClick={() => setSelectedClient(client)}>
-                      <div className={styles.pinTooltip}>{client.name}</div>
                       <div className={styles.pin} style={{ backgroundColor: color, borderColor: color }}>
-                        <div className={styles.pinContent} style={{ overflow: 'hidden' }}>
+                        <div className={styles.pinContent}>
                           <img 
-                            src={client.photo || '/images/default_avatar.png'} 
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} 
+                            src={client.photo || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(client.name + client.id)}&backgroundColor=e2e8f0`} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                             alt="client" 
                           />
                         </div>
                       </div>
+                      <div className={styles.pinName}>{client.name}</div>
                     </div>
                   </CustomOverlayMap>
                 );
